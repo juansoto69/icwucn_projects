@@ -1,203 +1,245 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import plotly.express as px
-from prophet import Prophet
-import sqlite3
-from streamlit_option_menu import option_menu
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error, r2_score
-from statsmodels.tsa.seasonal import seasonal_decompose
+import numpy as np
 
-# Set page config
-st.set_page_config(page_title="Breeze Supply Sight", layout="wide")
+# Google Analytics integration
+st.markdown(f'<script async src="https://www.googletagmanager.com/gtag/js?id=G-8NHG39VPS0"></script>', unsafe_allow_html=True)
+st.markdown("""
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-8NHG39VPS0');
+    </script>
+""", unsafe_allow_html=True)
 
-# Database setup (using SQLite for simplicity)
-conn = sqlite3.connect('users.db')
-c = conn.cursor()
+# CSS styles
+st.markdown("""
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f7f7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 300px;
+            text-align: center;
+        }
+        .title {
+            color: blue;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            font-size: 12px;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .icon {
+            width: 20px;
+            margin-right: 10px;
+        }
+        input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .options {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+        }
+        .remember-me {
+            font-size: 14px;
+        }
+        .forgot-password {
+            font-size: 14px;
+            color: blue;
+            text-decoration: none;
+        }
+        .sign-in-button {
+            background-color: blue;
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+        .register-text {
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .signup-link {
+            color: blue;
+            font-weight: bold;
+            text-decoration: none;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-def create_user_table():
-    c.execute('CREATE TABLE IF NOT EXISTS users(username TEXT, password TEXT)')
-    conn.commit()
+# Title
+st.markdown('<div class="container">', unsafe_allow_html=True)
+st.markdown('<h1 class="title">SIGN IN</h1>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">Please enter your email and password</p>', unsafe_allow_html=True)
 
-def add_user(username, password):
-    c.execute('INSERT INTO users(username, password) VALUES (?, ?)', (username, password))
-    conn.commit()
+# Input Fields
+email = st.text_input("Email Address", placeholder="Enter your email", key="email", help='Enter your email')
+password = st.text_input("Password", placeholder="Enter your password", type="password", key="password", help='Enter your password')
 
-def login_user(username, password):
-    c.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password))
-    data = c.fetchall()
-    return data
+# Session Management
+if 'signed_in' not in st.session_state:
+    st.session_state['signed_in'] = False
 
-# Sidebar Menu
-with st.sidebar:
-    selected = option_menu("Main Menu", ["Home", "Login", "Sign Up", "Profile", "Budget Tracking", "Custom Events", "AI Prediction"],
-                           icons=['house', 'key', 'pencil', 'person', 'money', 'calendar', 'robot'],
-                           menu_icon="cast", default_index=0)
+if st.session_state['signed_in']:
+    st.success(f"Welcome back, {st.session_state['email']}!")
 
-# User Sign-Up
-if selected == "Sign Up":
-    st.subheader("Create New Account")
-    new_user = st.text_input("Username", placeholder="Enter your username")
-    new_password = st.text_input("Password", type="password", placeholder="Enter your password")
-    
-    if st.button("Sign Up"):
-        create_user_table()
-        add_user(new_user, new_password)
-        st.success("You have successfully created an account!")
-        st.info("Go to Login Menu to login.")
+if not st.session_state['signed_in']:
+    if st.button("Sign In"):
+        # Save user data in session state
+        st.session_state['signed_in'] = True
+        st.session_state['email'] = email
+        st.success("Signed In Successfully")
 
-# User Login
-if selected == "Login":
-    st.subheader("Login to Your Account")
-    username = st.text_input("Username", placeholder="Enter your username")
-    password = st.text_input("Password", type="password", placeholder="Enter your password")
-    
-    if st.button("Login"):
-        result = login_user(username, password)
-        if result:
-            st.success(f"Welcome, {username}!")
-        else:
-            st.warning("Incorrect Username/Password")
+# Register Link
+st.markdown('<p class="register-text">Don\'t have an account? <a href="#" class="signup-link">Sign Up Now</a></p>', unsafe_allow_html=True)
 
-# User Profile
-if selected == "Profile":
-    st.subheader("User Profile")
-    st.write("Welcome to your profile page.")
+# Close the container div
+st.markdown('</div>', unsafe_allow_html=True)
 
-# Main App - Supply Prediction and Management
-if selected == "Home":
-    st.title("Breeze Supply Sight")
-    st.subheader("Supply Prediction Dashboard")
+# Load data (modify as needed)
+restaurant_data = pd.read_csv('restaurant_orders.csv')
+tattoo_data = pd.read_csv('tattoo_shop_orders.csv')
 
-    # Load data
-    uploaded_file = st.file_uploader("Upload your CSV file", type="csv")
-    
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-        st.write("Preview of Data:", df.head())
-        
-        # Ensure the necessary columns exist
-        if 'date' in df.columns and 'expenses' in df.columns:
-            df['ds'] = pd.to_datetime(df['date'])
-            df['y'] = df['expenses']
+# Enhance the Interface
+st.title("Breeze Supply Sight")
 
-            # Feature Engineering - Creating Lag Features
-            for lag in range(1, 4):  # Creates lag_1, lag_2, lag_3
-                df[f'lag_{lag}'] = df['y'].shift(lag)
-            st.write("Data with Lag Features:", df.head())
+# Dropdown for business selection
+business_type = st.selectbox("Select Business Type", ["Restaurant", "Tattoo Shop"])
 
-            # Seasonal Decomposition
-            df.set_index('ds', inplace=True)
-            decomposition = seasonal_decompose(df['y'], model='additive', period=30)
-            fig_decompose = decomposition.plot()
-            plt.suptitle("Seasonal Decomposition")
-            st.pyplot(fig_decompose)
+# Sliders for order filters
+min_orders = st.slider("Minimum Orders", 0, 100, 10)
+max_orders = st.slider("Maximum Orders", 0, 100, 50)
 
-            # Time Series Forecasting using Facebook Prophet
-            model = Prophet()
-            model.fit(df[['ds', 'y']])
-            
-            future = model.make_future_dataframe(periods=365)
-            forecast = model.predict(future)
-            
-            st.write("Supply Prediction for Next Year:")
-            fig1 = model.plot(forecast)
-            st.pyplot(fig1)
-        
-            # Additional Data Visualizations
-            st.subheader("Data Visualizations")
-            fig2 = px.line(df.reset_index(), x='ds', y='y', title='Expenses Over Time')
-            st.plotly_chart(fig2)
-
-            # Model retraining mechanism
-            if st.button("Retrain Model"):
-                model.fit(df[['ds', 'y']])
-                st.success("Model retrained with the new data!")
+# File upload for custom data
+uploaded_file = st.file_uploader("Upload your data file", type=["csv"])
+if uploaded_file is not None:
+    try:
+        custom_data = pd.read_csv(uploaded_file)
+        st.write(custom_data)
+    except Exception as e:
+        st.error("Error loading file. Please upload a valid CSV.")
 
 # Budget Tracking
-if selected == "Budget Tracking":
-    st.subheader("Budget Tracking")
-    
-    budget = st.number_input("Enter your monthly budget", min_value=0.0)
-    expense = st.number_input("Enter an expense amount", min_value=0.0)
-    
-    # Store expenses in a session state
-    if 'expenses' not in st.session_state:
-        st.session_state.expenses = []
-    
-    if st.button("Add Expense"):
-        st.session_state.expenses.append(expense)
-        st.success(f"Added expense: ${expense:.2f}")
-    
-    total_expenses = sum(st.session_state.expenses)
-    st.write(f"Total Expenses: ${total_expenses:.2f}")
+st.subheader("Budget Tracking")
+budget_goal = st.number_input("Set your budget goal:", min_value=0.0, value=1000.0, step=100.0)
+actual_spending = st.number_input("Enter your actual spending:", min_value=0.0, value=0.0, step=100.0)
 
-    if total_expenses > budget:
-        st.warning(f"You have exceeded your budget! Total Expenses: ${total_expenses:.2f}")
-    else:
-        st.success(f"Total Expenses: ${total_expenses:.2f}, within budget.")
+# Check if actual spending exceeds budget
+if actual_spending > budget_goal:
+    st.warning("Warning: Actual spending exceeds the budget goal.")
+else:
+    st.success("Your spending is within the budget.")
 
-# Custom Event Inputs
-if selected == "Custom Events":
-    st.subheader("Log Custom Events")
-    
-    event_name = st.text_input("Event Name", placeholder="Enter event name")
-    event_date = st.date_input("Event Date")
-    event_description = st.text_area("Event Description", placeholder="Describe the event")
-    
-    if st.button("Log Event"):
-        st.success(f"Logged event: {event_name} on {event_date}")
+# Budget vs. Actual Spending Visualization
+st.subheader("Budget vs Actual Spending")
+if budget_goal and actual_spending >= 0:
+    budget_data = pd.DataFrame({
+        'Category': ['Budget Goal', 'Actual Spending'],
+        'Amount': [budget_goal, actual_spending]
+    })
+    st.bar_chart(budget_data.set_index('Category'))
 
-# AI Prediction
-if selected == "AI Prediction":
-    st.subheader("Expense Prediction using Machine Learning")
-    
-    # Load and prepare the data for ML
-    if uploaded_file is not None:
-        df_ml = pd.read_csv(uploaded_file)
-        
-        # Ensure the necessary columns exist
-        if 'date' in df_ml.columns and 'expenses' in df_ml.columns:
-            df_ml['ds'] = pd.to_datetime(df_ml['date'])
-            df_ml['y'] = df_ml['expenses']
-            
-            # Create features for the model
-            df_ml['month'] = df_ml['ds'].dt.month
-            df_ml['day'] = df_ml['ds'].dt.day
-            df_ml['year'] = df_ml['ds'].dt.year
-            
-            # Create Lag Features
-            for lag in range(1, 4):  # Creates lag_1, lag_2, lag_3
-                df_ml[f'lag_{lag}'] = df_ml['y'].shift(lag)
-            
-            X = df_ml[['month', 'day', 'year', 'lag_1', 'lag_2', 'lag_3']].dropna()
-            y = df_ml['y'][X.index]
-            
-            # Split the data into training and testing sets
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-            
-            # Train a linear regression model
-            regressor = LinearRegression()
-            regressor.fit(X_train, y_train)
-            
-            # Make predictions
-            predictions = regressor.predict(X_test)
-            
-            # Evaluate model performance
-            mae = mean_absolute_error(y_test, predictions)
-            r2 = r2_score(y_test, predictions)
-            
-            # Show predictions and performance metrics
-            st.write("Predictions on Test Data:")
-            pred_df = pd.DataFrame({'Actual': y_test, 'Predicted': predictions})
-            st.write(pred_df)
-            st.write(f"Mean Absolute Error: {mae:.2f}")
-            st.write(f"R-squared: {r2:.2f}")
+# Supplier Management
+st.subheader("Supplier Management")
+supplier_name = st.text_input("Supplier Name")
+contact_details = st.text_input("Contact Details")
+delivery_time = st.number_input("Average Delivery Time (days)", min_value=1, value=3)
+reliability_rating = st.selectbox("Reliability Rating", [1, 2, 3, 4, 5])
 
-# About
-if selected == "Home":
-    st.subheader("About Breeze Supply Sight")
-    st.write("Breeze Supply Sight helps businesses predict their future supply needs based on past expenses.")
-    st.write("This version includes data visualization, AI-powered predictions, budget tracking, and supplier management.")
+if st.button("Add Supplier"):
+    st.success(f"Supplier '{supplier_name}' added with delivery time {delivery_time} days and reliability rating {reliability_rating}.")
+
+# Display Suppliers
+st.subheader("Supplier List")
+if st.button("Show Suppliers"):
+    supplier_data = pd.DataFrame({
+        'Supplier Name': ['Supplier A', 'Supplier B'],
+        'Contact Details': ['contactA@example.com', 'contactB@example.com'],
+        'Delivery Time (days)': [2, 5],
+        'Reliability Rating': [4, 3]
+    })
+    st.write(supplier_data)
+
+# Supplier Recommendations based on reliability rating
+if st.button("Recommend Supplier"):
+    suppliers = {
+        'Supplier A': {'rating': 4, 'delivery_time': 2},
+        'Supplier B': {'rating': 3, 'delivery_time': 5}
+    }
+    best_supplier = max(suppliers, key=lambda k: suppliers[k]['rating'])
+    st.success(f"Best supplier based on reliability: {best_supplier} with a rating of {suppliers[best_supplier]['rating']}.")
+
+# Visualizations
+st.subheader("Orders Histogram")
+if business_type == "Restaurant":
+    st.bar_chart(restaurant_data['orders'])
+elif business_type == "Tattoo Shop":
+    st.bar_chart(tattoo_data['orders'])
+
+# AI-Powered Recommendations
+st.subheader("AI-Powered Recommendations")
+if st.button("Get Recommendations"):
+    # Placeholder for recommendation logic
+    if business_type == "Restaurant":
+        recommended_stock = int(restaurant_data['orders'].mean() * 1.2)  # 20% more than average
+        st.success(f"Recommended stock level for Restaurant: {recommended_stock} items.")
+    elif business_type == "Tattoo Shop":
+        recommended_stock = int(tattoo_data['orders'].mean() * 1.2)  # 20% more than average
+        st.success(f"Recommended stock level for Tattoo Shop: {recommended_stock} items.")
+
+# User feedback
+st.subheader("User Feedback")
+feedback = st.text_area("What do you think about the app?")
+if st.button("Submit Feedback"):
+    st.success("Thank you for your feedback!")
+
+# User guide
+st.subheader("User Guide")
+st.write("""
+- **Select Business Type**: Choose between Restaurant and Tattoo Shop to filter data.
+- **Upload Data**: You can upload your own CSV files to analyze.
+- **Adjust Parameters**: Use the sliders to filter data according to order quantity.
+- **Set Budget**: Input your budget goal and actual spending to track your finances.
+- **Manage Suppliers**: Add and view supplier information, including contact details and delivery times.
+- **Get Recommendations**: Click to receive personalized stock level recommendations based on historical data.
+""")
+
+# GitHub Link
+st.markdown("[View Source Code on GitHub](https://github.com/juanc/icwucn_projects)")
+
+# Mobile Optimization
+if st.checkbox("Mobile Optimization"):
+    st.write("Optimized for mobile!")
+    st.markdown("""
+    <style>
+        @media (max-width: 600px) {
+            .container {
+                width: 90%;
+            }
+        }
+    </style>
+    """, unsafe_allow_html=True)
