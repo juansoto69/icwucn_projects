@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 from prophet import Prophet
 import sqlite3
-from streamlit_option_menu import option_menu
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, r2_score
@@ -13,20 +12,23 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 # Set page config
 st.set_page_config(page_title="Breeze Supply Sight", layout="wide")
 
+# Link to the CSS file
+st.markdown('<link rel="stylesheet" href="styles.css">', unsafe_allow_html=True)
+
 # Database setup (using SQLite for simplicity)
 conn = sqlite3.connect('users.db')
 c = conn.cursor()
 
 def create_user_table():
-    c.execute('CREATE TABLE IF NOT EXISTS users(username TEXT, password TEXT)')
+    c.execute('CREATE TABLE IF NOT EXISTS users(email TEXT, password TEXT)')  # Change username to email
     conn.commit()
 
-def add_user(username, password):
-    c.execute('INSERT INTO users(username, password) VALUES (?, ?)', (username, password))
+def add_user(email, password):
+    c.execute('INSERT INTO users(email, password) VALUES (?, ?)', (email, password))
     conn.commit()
 
-def login_user(username, password):
-    c.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password))
+def login_user(email, password):
+    c.execute('SELECT * FROM users WHERE email = ? AND password = ?', (email, password))
     data = c.fetchall()
     return data
 
@@ -34,44 +36,49 @@ def login_user(username, password):
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
-# Page 1: Login / Sign-Up
+# Page 1: Login
 if not st.session_state.logged_in:
     st.title("Welcome to Breeze Supply Sight")
-    selected = option_menu("User Access", ["Login", "Sign Up"], icons=["key", "pencil"], menu_icon="cast", default_index=0)
-
-    # User Sign-Up
-    if selected == "Sign Up":
-        st.subheader("Create New Account")
-        new_user = st.text_input("Username", placeholder="Enter your username")
-        new_password = st.text_input("Password", type="password", placeholder="Enter your password")
-        
-        if st.button("Sign Up"):
-            create_user_table()
-            add_user(new_user, new_password)
-            st.success("You have successfully created an account!")
-            st.info("Go to Login Menu to login.")
-
+    
     # User Login
-    if selected == "Login":
-        st.subheader("Login to Your Account")
-        username = st.text_input("Username", placeholder="Enter your username")
-        password = st.text_input("Password", type="password", placeholder="Enter your password")
-        
-        if st.button("Login"):
-            result = login_user(username, password)
-            if result:
-                st.success(f"Welcome, {username}!")
-                st.session_state.logged_in = True
-            else:
-                st.warning("Incorrect Username/Password")
+    st.subheader("Login to Your Account")
+    email = st.text_input("Email", placeholder="Enter your email")
+    password = st.text_input("Password", type="password", placeholder="Enter your password")
+    
+    if st.button("Log In", key="login_button"):  # Unique key added here
+        result = login_user(email, password)
+        if result:
+            st.success(f"Welcome, {email}!")
+            st.session_state.logged_in = True
+        else:
+            st.warning("Incorrect Email/Password")
 
-# Page 2: Main Menu
+    st.markdown("<small><a href='#'>Forgotten your password?</a></small>", unsafe_allow_html=True)
+    st.markdown("<small>Don't have an account?</small>", unsafe_allow_html=True)
+
+    if st.button("Create Account", key="create_account_nav"):  # Unique key added here
+        st.session_state.create_account = True  # Navigate to Create Account page
+
+# Page 2: Create Account
+if 'create_account' in st.session_state and st.session_state.create_account:
+    st.title("Create New Account")
+    
+    first_name = st.text_input("First Name", placeholder="Enter your first name", key="first_name")
+    last_name = st.text_input("Last Name", placeholder="Enter your last name", key="last_name")
+    email = st.text_input("Email", placeholder="Enter your email", key="email")  # Changed to email
+    new_password = st.text_input("Password", type="password", placeholder="Enter your password", key="new_password")
+    
+    if st.button("Create Account", key="create_account_button"):  # Unique key added here
+        create_user_table()
+        add_user(email, new_password)  # Save email instead of username
+        st.success("You have successfully created an account!")
+        st.info("You can now log in with your credentials.")
+        st.session_state.create_account = False  # Reset to go back to the login page
+
+# Page 3: Main Menu
 if st.session_state.logged_in:
     # Sidebar Menu
-    with st.sidebar:
-        selected = option_menu("Main Menu", ["Home", "Profile", "Budget Tracking", "Custom Events", "AI Prediction"],
-                               icons=['house', 'person', 'money', 'calendar', 'robot'],
-                               menu_icon="cast", default_index=0)
+    selected = st.sidebar.selectbox("Main Menu", ["Home", "Profile", "Budget Tracking", "Custom Events", "AI Prediction"])
     
     # Home Page - Supply Prediction and Management
     if selected == "Home":

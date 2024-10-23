@@ -1,0 +1,88 @@
+/* Basic Reset and Style Setup */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+  }
+  
+  .container {
+    width: 90%; /* Changed to a responsive width */
+    max-width: 400px; /* Set a maximum width for larger screens */
+    padding: 20px;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    text-align: center;
+  }
+  
+  h1.logo {
+    color: blue;
+    font-size: 40px;
+  }
+  
+  h2, h5 {
+    color: #333; /* Improved contrast for headers */
+  }
+  
+  form input {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-sizing: border-box; /* Added to prevent padding overflow */
+  }
+  
+  button {
+    width: 100%;
+    padding: 10px;
+    background-color: blue;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s; /* Smooth transition effect */
+  }
+  
+  button:hover {
+    background-color: darkblue;
+  }
+  
+  small {
+    display: block;
+    margin-top: 10px;
+    color: #666; /* Changed to a softer gray */
+  }
+  
+  small a {
+    color: gray;
+    text-decoration: none;
+  }
+  
+  small a:hover {
+    text-decoration: underline;
+  }
+  
+  /* Responsive styles */
+  @media (max-width: 480px) {
+    h1.logo {
+      font-size: 30px; /* Smaller logo for mobile */
+    }
+  
+    .container {
+      padding: 15px; /* Reduced padding for mobile */
+    }
+  
+    button {
+      padding: 8px; /* Reduced button padding for mobile */
+    }
+  
+    form input {
+      padding: 8px; /* Reduced input padding for mobile */
+    }
+  }
+  
